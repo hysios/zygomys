@@ -163,6 +163,11 @@ func CallGoMethodFunction(env *Glisp, name string, args []Sexp) (Sexp, error) {
 					}
 					Q("got st from Factory, checking if types match")
 					if reflect.ValueOf(st).Type() == out[i].Type() {
+						if isZero(out[i]) {
+							found = true
+							r = append(r, out[i])
+							break
+						}
 						Q("types match")
 						retHash, err := MakeHash([]Sexp{}, factory.RegisteredName, env)
 						if err != nil {
@@ -201,4 +206,26 @@ func NilOrHoldsNil(iface interface{}) bool {
 		return true
 	}
 	return reflect.ValueOf(iface).IsNil()
+}
+
+func isZero(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Func, reflect.Map, reflect.Slice:
+		return v.IsNil()
+	case reflect.Array:
+		z := true
+		for i := 0; i < v.Len(); i++ {
+			z = z && isZero(v.Index(i))
+		}
+		return z
+	case reflect.Struct:
+		z := true
+		for i := 0; i < v.NumField(); i++ {
+			z = z && isZero(v.Field(i))
+		}
+		return z
+	}
+	// Compare other types directly:
+	z := reflect.Zero(v.Type())
+	return v.Interface() == z.Interface()
 }

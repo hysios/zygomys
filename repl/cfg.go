@@ -7,6 +7,8 @@ import (
 // configure a glisp repl
 type GlispConfig struct {
 	CpuProfile        string
+	AppName           string
+	Prompt            string
 	MemProfile        string
 	ExitOnFailure     bool
 	CountFuncCalls    bool
@@ -26,6 +28,8 @@ func NewGlispConfig(cmdname string) *GlispConfig {
 
 // call DefineFlags before myflags.Parse()
 func (c *GlispConfig) DefineFlags() {
+	c.Flags.StringVar(&c.AppName, "appname", "zygo", "set application name")
+	c.Flags.StringVar(&c.Prompt, "prompt", "zygo> ", "set repl prompt")
 	c.Flags.StringVar(&c.CpuProfile, "cpuprofile", "", "write cpu profile to file")
 	c.Flags.StringVar(&c.MemProfile, "memprofile", "", "write mem profile to file")
 	c.Flags.BoolVar(&c.ExitOnFailure, "exitonfail", false, "exit on failure instead of starting repl")

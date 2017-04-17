@@ -157,13 +157,16 @@ func Repl(env *Glisp, cfg *GlispConfig) {
 
 	if !cfg.Quiet {
 		if cfg.Sandboxed {
-			fmt.Printf("zygo [sandbox mode] version %s\n", Version())
+			fmt.Printf("%s [sandbox mode] version %s\n", cfg.AppName, Version())
 		} else {
-			fmt.Printf("zygo version %s\n", Version())
+			fmt.Printf("%s version %s\n", cfg.AppName, Version())
 		}
 		fmt.Printf("press tab (repeatedly) to get completion suggestions. Shift-tab goes back. Ctrl-d to exit.\n")
 	}
 	pr := NewPrompter()
+	if len(cfg.Prompt) > 0 {
+		pr.prompt = cfg.Prompt
+	}
 	defer pr.Close()
 	infixSym := env.MakeSymbol("infix")
 
@@ -425,6 +428,64 @@ func ReplMain(cfg *GlispConfig) {
 	} else {
 		env = NewGlisp()
 	}
+	env.StandardSetup()
+
+	if cfg.CpuProfile != "" {
+		f, err := os.Create(cfg.CpuProfile)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-1)
+		}
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-1)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	precounts = make(map[string]int)
+	postcounts = make(map[string]int)
+
+	if cfg.CountFuncCalls {
+		env.AddPreHook(CountPreHook)
+		env.AddPostHook(CountPostHook)
+	}
+
+	if cfg.Command != "" {
+		_, err := env.EvalString(cfg.Command)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	args := cfg.Flags.Args()
+	if len(args) > 0 {
+		runScript(env, args[0], cfg)
+	} else {
+		Repl(env, cfg)
+	}
+
+	if cfg.MemProfile != "" {
+		f, err := os.Create(cfg.MemProfile)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-1)
+		}
+		defer f.Close()
+
+		err = pprof.Lookup("heap").WriteTo(f, 1)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(-1)
+		}
+	}
+}
+
+func LoadRepl(env *Glisp, cfg *GlispConfig) {
+
 	env.StandardSetup()
 
 	if cfg.CpuProfile != "" {
